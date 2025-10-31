@@ -1,0 +1,36 @@
+# Core Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+
+# Linguistic Processing
+epitran==1.24
+panphon==0.20.0
+lingpy==2.6.12
+python-Levenshtein==0.25.0
+
+# NLP & Embeddings
+sentence-transformers==2.3.1
+spacy==3.7.2
+torch==2.1.2
+
+# Database & Storage
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+redis==5.0.1
+
+# Graph Processing
+networkx==3.2.1
+python-igraph==0.11.3
+
+# gRPC
+grpcio==1.60.0
+grpcio-tools==1.60.0
+
+# WebSockets (pinned per project requirements)
+websockets<14
+
+# Utilities
+numpy==1.26.3
+python-dotenv==1.0.0
+

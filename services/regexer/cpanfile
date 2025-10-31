@@ -1,0 +1,17 @@
+requires 'perl', '5.038000';
+
+# Core dependencies
+requires 'Lingua::IPA', '0.05';
+requires 'Unicode::Normalize';
+requires 'Text::Unidecode';
+requires 'utf8::all';
+
+# gRPC
+requires 'Grpc::XS';
+
+# Development
+on 'test' => sub {
+    requires 'Test::More';
+    requires 'Test::Exception';
+};
+

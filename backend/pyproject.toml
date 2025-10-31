@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "langviz-backend"
+version = "0.1.0"
+description = "Indo-European Etymology & Semantic Similarity Analysis System"
+requires-python = ">=3.11"
+authors = [
+    {name = "LangViz Team"}
+]
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.3",
+    "epitran>=1.24",
+    "panphon>=0.20.0",
+    "lingpy>=2.6.12",
+    "python-Levenshtein>=0.25.0",
+    "sentence-transformers>=2.3.1",
+    "spacy>=3.7.2",
+    "torch>=2.1.2",
+    "asyncpg>=0.29.0",
+    "psycopg2-binary>=2.9.9",
+    "redis>=5.0.1",
+    "networkx>=3.2.1",
+    "python-igraph>=0.11.3",
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+    "websockets<14",
+    "numpy>=1.26.3",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.9.0",
+    "mypy>=1.6.0",
+    "ruff>=0.1.0",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+

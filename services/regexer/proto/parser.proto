@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package langviz.parser;
+
+// Dictionary parsing service interface
+service ParserService {
+  // Parse dictionary file to normalized entries
+  rpc ParseDictionary(ParseRequest) returns (ParseResponse);
+  
+  // Normalize text using Perl regex engine
+  rpc NormalizeText(NormalizeRequest) returns (NormalizeResponse);
+  
+  // Extract IPA from various notation systems
+  rpc ExtractIPA(ExtractIPARequest) returns (ExtractIPAResponse);
+}
+
+message ParseRequest {
+  string filepath = 1;
+  string format = 2;  // starling, dictd, etc.
+}
+
+message ParseResponse {
+  repeated Entry entries = 1;
+  int32 total_parsed = 2;
+  repeated string warnings = 3;
+}
+
+message Entry {
+  string headword = 1;
+  string ipa = 2;
+  string language = 3;
+  string definition = 4;
+  optional string etymology = 5;
+  optional string pos_tag = 6;
+}
+
+message NormalizeRequest {
+  string text = 1;
+  repeated string operations = 2;  // strip_diacritics, lowercase, etc.
+}
+
+message NormalizeResponse {
+  string normalized = 1;
+}
+
+message ExtractIPARequest {
+  string text = 1;
+  string notation = 2;  // kirshenbaum, x-sampa, etc.
+}
+
+message ExtractIPAResponse {
+  string ipa = 1;
+  bool success = 2;
+}
+
