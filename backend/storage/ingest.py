@@ -7,11 +7,16 @@ import tomli
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
+
 import asyncpg
+
 from backend.storage.provenance import Source, SourceType, DataQuality, Provenance
 from backend.storage.loaders import LoaderFactory, RawEntry
 from backend.storage.pipeline import PipelineFactory
 from backend.core.types import Entry
+from backend.observ import get_logger
+
+logger = get_logger(__name__)
 
 
 class IngestService:
@@ -80,6 +85,14 @@ class IngestService:
         
         Returns statistics about the ingestion.
         """
+        logger.info(
+            "ingestion_started",
+            file_path=file_path,
+            source_id=source_id,
+            format=format,
+            dry_run=dry_run
+        )
+        
         stats = {
             'raw_loaded': 0,
             'transformed': 0,
@@ -120,8 +133,9 @@ class IngestService:
                 await self._save_entry(entry)
                 stats['saved'] += 1
             except Exception as e:
-                print(f"Error saving entry {entry.id}: {e}")
+                logger.error("entry_save_failed", entry_id=entry.id, error=str(e))
         
+        logger.info("ingestion_completed", **stats)
         return stats
     
     async def _store_raw_entries(self, entries: list[RawEntry]) -> list[int]:

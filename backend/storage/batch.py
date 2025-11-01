@@ -11,6 +11,7 @@ import hashlib
 from typing import AsyncIterator, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
+
 import asyncpg
 
 from backend.core.types import Entry
@@ -19,6 +20,9 @@ from backend.storage.provenance import TransformStep
 from backend.services.semantic import SemanticService
 from backend.services.concepts import ConceptAligner
 from backend.services.phylogeny import PhylogeneticTree
+from backend.observ import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -253,7 +257,7 @@ class BatchProcessor:
                 progress.succeeded += 1
                 
             except Exception as e:
-                print(f"Error processing entry: {e}")
+                logger.error("entry_processing_failed", error=str(e), error_type=type(e).__name__)
                 progress.failed += 1
             
             progress.processed += 1

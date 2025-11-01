@@ -5,16 +5,20 @@ Maps entries to concepts for concept-level indexing and querying.
 """
 
 from typing import Optional
+from collections import defaultdict
+from dataclasses import dataclass
+
 import numpy as np
 from numpy.typing import NDArray
 import hdbscan
 from umap import UMAP
-from collections import defaultdict
-from dataclasses import dataclass
 
 from backend.core.types import Entry
 from backend.core.similarity import ConceptCluster, ConceptID
 from backend.services.semantic import SemanticService
+from backend.observ import get_logger, timer
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -50,6 +54,12 @@ class ConceptAligner:
         Returns:
             List of discovered concept clusters
         """
+        logger.info(
+            "concept_discovery_started",
+            entry_count=len(entries),
+            min_cluster_size=self.min_cluster_size,
+            use_cache=use_cache
+        )
         
         # Extract definitions and embed
         definitions = [e.definition for e in entries]

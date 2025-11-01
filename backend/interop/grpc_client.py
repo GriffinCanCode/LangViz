@@ -5,9 +5,15 @@ Architecture: Python orchestrates, Perl parses messy data, Rust computes phoneti
 """
 
 from typing import Optional
+
 import grpc
+
 from backend.core import Entry
 from backend.core.contracts import IParser
+from backend.observ import get_logger, timer
+from backend.errors import ServiceError, RustBackendError
+
+logger = get_logger(__name__)
 
 
 class ParserGrpcClient(IParser):
@@ -24,28 +30,37 @@ class ParserGrpcClient(IParser):
         
     def connect(self):
         """Establish gRPC connection to Perl service."""
-        self._channel = grpc.insecure_channel(
-            f"{self._host}:{self._port}",
-            options=[
-                ('grpc.max_send_message_length', 50 * 1024 * 1024),
-                ('grpc.max_receive_message_length', 50 * 1024 * 1024),
-            ]
-        )
+        logger.info("grpc_connect_started", host=self._host, port=self._port)
         
         try:
+            self._channel = grpc.insecure_channel(
+                f"{self._host}:{self._port}",
+                options=[
+                    ('grpc.max_send_message_length', 50 * 1024 * 1024),
+                    ('grpc.max_receive_message_length', 50 * 1024 * 1024),
+                ]
+            )
+            
             from backend.interop import parser_pb2_grpc
             self._stub = parser_pb2_grpc.ParserServiceStub(self._channel)
+            
+            logger.info("grpc_connect_success", host=self._host, port=self._port)
         except ImportError:
+            logger.error("grpc_stubs_not_generated")
             raise RuntimeError(
                 "gRPC stubs not generated. Run: "
                 "python3 -m grpc_tools.protoc -I services/regexer/proto "
                 "--python_out=backend/interop --grpc_python_out=backend/interop "
                 "services/regexer/proto/parser.proto"
             )
+        except Exception as e:
+            logger.error("grpc_connect_failed", host=self._host, port=self._port, error=str(e))
+            raise ServiceError("grpc_parser", f"Connection failed: {str(e)}", host=self._host, port=self._port)
         
     def disconnect(self):
         """Close gRPC connection."""
         if self._channel:
+            logger.info("grpc_disconnect", host=self._host, port=self._port)
             self._channel.close()
     
     def parse_starling_dictionary(self, filepath: str) -> list[dict]:

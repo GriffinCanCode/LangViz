@@ -6,7 +6,6 @@ Implements the multi-layered similarity architecture with adaptive weighting.
 from typing import Optional
 from dataclasses import dataclass
 import numpy as np
-import logging
 
 from backend.core.types import Entry
 from backend.core.similarity import (
@@ -20,8 +19,9 @@ from backend.services.semantic import SemanticService
 from backend.services.phonetic import PhoneticService
 from backend.services.phylogeny import PhylogeneticTree
 from backend.services.concepts import ConceptAligner
+from backend.observ import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

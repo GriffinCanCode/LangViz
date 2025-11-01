@@ -5,10 +5,16 @@ Uses epitran for IPA transcription and panphon for feature extraction.
 """
 
 from typing import Optional
+
 import epitran
 import panphon
+
 from backend.core import PhoneticFeatures
 from backend.core.contracts import IPhoneticAnalyzer
+from backend.observ import get_logger
+from backend.errors import InvalidIPAError
+
+logger = get_logger(__name__)
 
 
 class PhoneticService(IPhoneticAnalyzer):
@@ -22,6 +28,8 @@ class PhoneticService(IPhoneticAnalyzer):
         
     def compute_distance(self, ipa_a: str, ipa_b: str) -> float:
         """Compute phonetic distance with Rust acceleration."""
+        logger.debug("computing_distance", ipa_a=ipa_a, ipa_b=ipa_b, using_rust=bool(self._rust_backend))
+        
         if self._rust_backend:
             return self._rust_backend.phonetic_distance(ipa_a, ipa_b)
         return self._fallback_distance(ipa_a, ipa_b)
@@ -30,7 +38,8 @@ class PhoneticService(IPhoneticAnalyzer):
         """Extract panphon features for IPA segment."""
         segments = self._feature_table.word_to_segs(ipa)
         if not segments:
-            raise ValueError(f"Invalid IPA string: {ipa}")
+            logger.warning("invalid_ipa_segments", ipa=ipa)
+            raise InvalidIPAError(ipa, "No valid segments found")
         
         features = self._feature_table.word_to_vector_list(ipa)[0]
         feature_dict = dict(zip(self._feature_table.names, features))
@@ -43,8 +52,12 @@ class PhoneticService(IPhoneticAnalyzer):
     
     def transcribe(self, text: str, lang_code: str) -> str:
         """Transcribe text to IPA for given language."""
+        logger.debug("transcribing_text", text=text, lang_code=lang_code)
+        
         if lang_code not in self._transliterators:
+            logger.info("initializing_transliterator", lang_code=lang_code)
             self._transliterators[lang_code] = epitran.Epitran(lang_code)
+        
         return self._transliterators[lang_code].transliterate(text)
     
     def _fallback_distance(self, ipa_a: str, ipa_b: str) -> float:

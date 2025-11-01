@@ -4,11 +4,15 @@ Implements LingPy-based cognate detection with custom scoring.
 Combines phonetic and semantic signals for cognate identification.
 """
 
-from typing import Optional
 from collections import defaultdict
+
 import lingpy
+
 from backend.core import Entry, CognateSet, SimilarityScore
 from backend.core.contracts import ICognateDetector, IPhoneticAnalyzer, ISemanticAnalyzer
+from backend.observ import get_logger
+
+logger = get_logger(__name__)
 
 
 class CognateService(ICognateDetector):
@@ -26,10 +30,15 @@ class CognateService(ICognateDetector):
         
     def detect_cognates(self, entries: list[Entry]) -> list[CognateSet]:
         """Cluster entries into cognate sets."""
-        similarity_matrix = self._build_similarity_matrix(entries)
-        clusters = self._cluster_entries(entries, similarity_matrix)
+        logger.info("cognate_detection_started", entry_count=len(entries), threshold=self._threshold)
         
-        return [
+        similarity_matrix = self._build_similarity_matrix(entries)
+        logger.debug("similarity_matrix_built", comparisons=len(similarity_matrix))
+        
+        clusters = self._cluster_entries(entries, similarity_matrix)
+        logger.info("cognate_clustering_completed", cluster_count=len(clusters))
+        
+        cognate_sets = [
             CognateSet(
                 id=f"cognate_set_{i}",
                 entries=[e.id for e in cluster],
@@ -39,6 +48,9 @@ class CognateService(ICognateDetector):
             )
             for i, cluster in enumerate(clusters)
         ]
+        
+        logger.info("cognate_sets_created", set_count=len(cognate_sets))
+        return cognate_sets
     
     def compute_confidence(self, entry_a: Entry, entry_b: Entry) -> float:
         """Compute cognate confidence score."""
@@ -55,23 +67,36 @@ class CognateService(ICognateDetector):
     ) -> dict[tuple[str, str], SimilarityScore]:
         """Build pairwise similarity matrix."""
         matrix = {}
+        total_comparisons = (len(entries) * (len(entries) - 1)) // 2
+        logger.debug("building_similarity_matrix", entry_count=len(entries), total_comparisons=total_comparisons)
+        
         for i, entry_a in enumerate(entries):
             for entry_b in entries[i + 1:]:
-                phonetic = self._phonetic.compute_distance(entry_a.ipa, entry_b.ipa)
-                semantic = self._semantic.compute_similarity(
-                    entry_a.definition,
-                    entry_b.definition
-                )
-                combined = self._combine_scores(phonetic, semantic)
-                
-                matrix[(entry_a.id, entry_b.id)] = SimilarityScore(
-                    entry_a=entry_a.id,
-                    entry_b=entry_b.id,
-                    phonetic=phonetic,
-                    semantic=semantic,
-                    combined=combined,
-                    confidence=combined
-                )
+                try:
+                    phonetic = self._phonetic.compute_distance(entry_a.ipa, entry_b.ipa)
+                    semantic = self._semantic.compute_similarity(
+                        entry_a.definition,
+                        entry_b.definition
+                    )
+                    combined = self._combine_scores(phonetic, semantic)
+                    
+                    matrix[(entry_a.id, entry_b.id)] = SimilarityScore(
+                        entry_a=entry_a.id,
+                        entry_b=entry_b.id,
+                        phonetic=phonetic,
+                        semantic=semantic,
+                        combined=combined,
+                        confidence=combined
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "similarity_computation_failed",
+                        entry_a=entry_a.id,
+                        entry_b=entry_b.id,
+                        error=str(e)
+                    )
+        
+        logger.debug("similarity_matrix_complete", computed_comparisons=len(matrix))
         return matrix
     
     def _cluster_entries(

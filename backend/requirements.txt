@@ -4,6 +4,9 @@ uvicorn[standard]==0.27.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
+# Observability
+structlog==24.1.0
+
 # Linguistic Processing
 epitran==1.24
 panphon==0.20.0
