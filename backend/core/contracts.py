@@ -4,8 +4,11 @@ Defines protocols for dependency injection and testing.
 """
 
 from abc import ABC, abstractmethod
-from typing import Protocol
+from typing import Protocol, TypeVar
 from .types import Entry, SimilarityScore, CognateSet, PhoneticFeatures
+
+
+T = TypeVar('T')
 
 
 class IPhoneticAnalyzer(Protocol):
@@ -56,6 +59,42 @@ class ICognateDetector(Protocol):
         ...
 
 
+class ICleaner(Protocol):
+    """Contract for data cleaning operations.
+    
+    Cleaners are pure, composable transformation functions.
+    """
+    
+    @property
+    def name(self) -> str:
+        """Cleaner identifier."""
+        ...
+    
+    @property
+    def version(self) -> str:
+        """Cleaner version for provenance tracking."""
+        ...
+    
+    def clean(self, value: T, **params) -> T:
+        """Apply cleaning transformation.
+        
+        Must be idempotent and side-effect free.
+        """
+        ...
+    
+    def validate(self, value: T) -> bool:
+        """Check if value passes validation."""
+        ...
+
+
+class IValidator(Protocol):
+    """Contract for data validation."""
+    
+    def validate(self, data: object) -> tuple[bool, list[str]]:
+        """Validate data, returning success and error messages."""
+        ...
+
+
 class IRepository(ABC):
     """Base repository interface for data access."""
     
@@ -73,4 +112,3 @@ class IRepository(ABC):
     async def query(self, **filters):
         """Query entities with filters."""
         pass
-

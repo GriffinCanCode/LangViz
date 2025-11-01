@@ -1,0 +1,317 @@
+# Data Source Catalog for Indo-European Languages
+# Defines available dictionary sources, their metadata, and acquisition methods
+# Priority: CLDF-first approach for standardized, interoperable data
+
+# ==============================================================================
+# TIER 1: PRIMARY SOURCES (CLDF Format - Highest Quality)
+# ==============================================================================
+
+[[source]]
+id = "ielex"
+name = "IE-CoR Lexical Database (IELex)"
+description = "Gold standard Indo-European comparative wordlist with cognate judgments"
+type = "cognate_sets"
+format = "cldf"
+download_method = "git"
+url = "https://github.com/lexibank/ielex"
+git_url = "https://github.com/lexibank/ielex.git"
+download_path = "data/sources/ielex"
+languages_count = 95
+language_families = ["Indo-European"]
+concepts = 207
+entries_approx = 20000
+license = "CC-BY-4.0"
+quality = "peer_reviewed"
+priority = 1
+status = "ready"
+features = ["cognate_sets", "ipa_transcription", "swadesh_aligned", "concepticon_linked"]
+citation = "Dunn, Michael (ed.). 2012. Indo-European Lexical Cognacy Database (IELex)"
+
+[[source]]
+id = "ruhlenprotoworld"
+name = "Ruhlen Proto-World Comparison"
+description = "Global etymological comparison including full IE coverage"
+type = "comparative_wordlist"
+format = "cldf"
+download_method = "git"
+url = "https://github.com/lexibank/ruhlenprotoworld"
+git_url = "https://github.com/lexibank/ruhlenprotoworld.git"
+download_path = "data/sources/ruhlenprotoworld"
+languages_count = 277
+language_families = ["all_major"]
+concepts = "variable"
+entries_approx = 50000
+license = "CC-BY-4.0"
+quality = "high"
+priority = 2
+status = "ready"
+features = ["global_comparison", "proto_forms", "cognate_sets"]
+citation = "Ruhlen, Merritt. 1994. The origin of language: Tracing the evolution of the mother tongue"
+
+# ==============================================================================
+# TIER 2: COMPREHENSIVE COVERAGE (Machine-Readable, High Volume)
+# ==============================================================================
+
+[[source]]
+id = "kaikki_english"
+name = "Kaikki.org English Dictionary (from Wiktionary)"
+description = "Parsed Wiktionary English with etymology and IPA"
+type = "full_dictionary"
+format = "jsonl"
+download_method = "http"
+url = "https://kaikki.org/dictionary/English/"
+download_url = "https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.json"
+download_path = "data/sources/kaikki/english.json"
+languages_count = 1
+concepts = "variable"
+entries_approx = 500000
+license = "CC-BY-SA-3.0"
+quality = "community_curated"
+priority = 3
+status = "ready"
+features = ["etymology_parsed", "ipa_transcription", "definitions", "pos_tags"]
+notes = "Monthly updates available. Etymology chains pre-parsed."
+
+[[source]]
+id = "kaikki_german"
+name = "Kaikki.org German Dictionary"
+type = "full_dictionary"
+format = "jsonl"
+download_method = "http"
+url = "https://kaikki.org/dictionary/German/"
+download_url = "https://kaikki.org/dictionary/German/kaikki.org-dictionary-German.json"
+download_path = "data/sources/kaikki/german.json"
+languages_count = 1
+entries_approx = 300000
+license = "CC-BY-SA-3.0"
+quality = "community_curated"
+priority = 3
+status = "ready"
+
+[[source]]
+id = "kaikki_russian"
+name = "Kaikki.org Russian Dictionary"
+type = "full_dictionary"
+format = "jsonl"
+download_method = "http"
+url = "https://kaikki.org/dictionary/Russian/"
+download_url = "https://kaikki.org/dictionary/Russian/kaikki.org-dictionary-Russian.json"
+download_path = "data/sources/kaikki/russian.json"
+languages_count = 1
+entries_approx = 250000
+license = "CC-BY-SA-3.0"
+quality = "community_curated"
+priority = 3
+status = "ready"
+
+[[source]]
+id = "kaikki_spanish"
+name = "Kaikki.org Spanish Dictionary"
+type = "full_dictionary"
+format = "jsonl"
+download_method = "http"
+url = "https://kaikki.org/dictionary/Spanish/"
+download_url = "https://kaikki.org/dictionary/Spanish/kaikki.org-dictionary-Spanish.json"
+download_path = "data/sources/kaikki/spanish.json"
+languages_count = 1
+entries_approx = 200000
+license = "CC-BY-SA-3.0"
+quality = "community_curated"
+priority = 3
+status = "ready"
+
+[[source]]
+id = "kaikki_french"
+name = "Kaikki.org French Dictionary"
+type = "full_dictionary"
+format = "jsonl"
+download_method = "http"
+url = "https://kaikki.org/dictionary/French/"
+download_url = "https://kaikki.org/dictionary/French/kaikki.org-dictionary-French.json"
+download_path = "data/sources/kaikki/french.json"
+languages_count = 1
+entries_approx = 180000
+license = "CC-BY-SA-3.0"
+quality = "community_curated"
+priority = 3
+status = "ready"
+
+[[source]]
+id = "kaikki_hindi"
+name = "Kaikki.org Hindi Dictionary"
+type = "full_dictionary"
+format = "jsonl"
+download_method = "http"
+url = "https://kaikki.org/dictionary/Hindi/"
+download_url = "https://kaikki.org/dictionary/Hindi/kaikki.org-dictionary-Hindi.json"
+download_path = "data/sources/kaikki/hindi.json"
+languages_count = 1
+entries_approx = 50000
+license = "CC-BY-SA-3.0"
+quality = "community_curated"
+priority = 3
+status = "ready"
+
+# ==============================================================================
+# TIER 3: SPECIALIZED ACADEMIC RESOURCES
+# ==============================================================================
+
+[[source]]
+id = "ut_austin_pie"
+name = "University of Texas PIE Lexicon"
+description = "PIE etyma with reflexes across major IE branches"
+type = "etymological"
+format = "html"
+download_method = "scrape"
+url = "https://lrc.la.utexas.edu/lex"
+download_path = "data/sources/ut_austin_pie"
+languages_count = 12
+concepts = "variable"
+entries_approx = 2000
+license = "academic_use"
+quality = "peer_reviewed"
+priority = 4
+status = "requires_scraper"
+features = ["pie_roots", "reflexes", "semantic_fields"]
+citation = "Linguistics Research Center, UT Austin. Indo-European Lexicon"
+notes = "Requires custom scraper. HTML format with structured tables."
+
+[[source]]
+id = "academia_prisca_pie"
+name = "Academia Prisca Late PIE Lexicon"
+description = "Late Proto-Indo-European etymological lexicon (North-West IE focus)"
+type = "etymological"
+format = "pdf"
+download_method = "http"
+url = "https://academiaprisca.org/dnghu/en/resources/"
+download_url = "https://academiaprisca.org/dnghu/en/resources/PIE_Lexicon.pdf"
+download_path = "data/sources/academia_prisca/pie_lexicon.pdf"
+languages_count = 1
+concepts = "variable"
+entries_approx = 4000
+license = "CC-BY-SA-3.0"
+quality = "academic"
+priority = 4
+status = "requires_extraction"
+features = ["pie_roots", "derivatives", "semantic_groups"]
+citation = "López-Menchero, Fernando. Late Proto-Indo-European Etymological Lexicon"
+notes = "PDF format. Requires text extraction and NLP structuring."
+
+[[source]]
+id = "perseus_greek"
+name = "Perseus Liddell-Scott-Jones Greek Lexicon"
+description = "Comprehensive Ancient Greek dictionary with etymologies"
+type = "full_dictionary"
+format = "xml"
+download_method = "http"
+url = "http://www.perseus.tufts.edu/hopper/"
+download_url = "https://github.com/PerseusDL/lexica/raw/master/CTS_XML_TEI/perseus/pdllex/grc/lsj/grc.lsj.perseus-eng1.xml"
+download_path = "data/sources/perseus/lsj_greek.xml"
+languages_count = 1
+concepts = "variable"
+entries_approx = 116000
+license = "CC-BY-SA-3.0"
+quality = "canonical"
+priority = 4
+status = "ready"
+features = ["definitions", "citations", "etymology", "cross_references"]
+citation = "Liddell, H.G., Scott, R., Jones, H.S. A Greek-English Lexicon. Perseus Digital Library"
+
+[[source]]
+id = "perseus_latin"
+name = "Perseus Lewis & Short Latin Dictionary"
+description = "Standard Latin dictionary with extensive etymological notes"
+type = "full_dictionary"
+format = "xml"
+download_method = "http"
+url = "http://www.perseus.tufts.edu/hopper/"
+download_url = "https://github.com/PerseusDL/lexica/raw/master/CTS_XML_TEI/perseus/pdllex/lat/ls/lat.ls.perseus-eng1.xml"
+download_path = "data/sources/perseus/lewis_short_latin.xml"
+languages_count = 1
+concepts = "variable"
+entries_approx = 50000
+license = "Public Domain"
+quality = "canonical"
+priority = 4
+status = "ready"
+features = ["definitions", "citations", "etymology", "usage_notes"]
+citation = "Lewis, C.T., Short, C. A Latin Dictionary. Perseus Digital Library"
+
+[[source]]
+id = "edil_irish"
+name = "eDIL - Electronic Dictionary of the Irish Language"
+description = "Comprehensive Old and Middle Irish dictionary"
+type = "full_dictionary"
+format = "html"
+download_method = "scrape"
+url = "http://www.dil.ie/"
+download_path = "data/sources/edil"
+languages_count = 1
+concepts = "variable"
+entries_approx = 35000
+license = "academic_use"
+quality = "canonical"
+priority = 5
+status = "requires_scraper"
+features = ["old_irish", "middle_irish", "citations", "etymology"]
+citation = "Royal Irish Academy. Electronic Dictionary of the Irish Language"
+
+# ==============================================================================
+# LEGACY SOURCES (Already in catalog, updated)
+# ==============================================================================
+
+[[source]]
+id = "swadesh_207"
+name = "Swadesh 207-item list"
+description = "Basic comparative wordlist for testing"
+type = "comparative_wordlist"
+format = "csv"
+download_method = "manual"
+url = "https://en.wiktionary.org/wiki/Appendix:Swadesh_lists"
+download_path = "data/raw/example_swadesh.csv"
+languages = ["en", "de", "es", "fr", "it", "pt", "ru", "pl", "la", "grc", "sa", "hi"]
+concepts = 207
+entries_approx = 2484
+license = "CC-BY-SA-3.0"
+quality = "basic"
+priority = 6
+status = "available"
+notes = "Used for initial testing. Superseded by IELex for production."
+
+[[source]]
+id = "starling_ie"
+name = "Starling Indo-European Database"
+description = "Comprehensive etymological database (requires specialized access)"
+type = "etymological"
+format = "starling_proprietary"
+download_method = "manual"
+url = "http://starling.rinet.ru/cgi-bin/main.cgi"
+languages = ["pie", "en", "de", "la", "grc", "sa", "av", "fa", "ru", "pl", "lt", "sga"]
+concepts = "variable"
+entries_approx = 50000
+license = "academic"
+quality = "high"
+priority = 7
+status = "deferred"
+notes = "Complex interface. Consider after primary sources are integrated."
+
+[[source]]
+id = "ciobanu_cognates"
+name = "Ciobanu & Dinu Cognate Database"
+description = "Cognate pairs for Romance and Germanic languages"
+type = "cognate_pairs"
+format = "tsv"
+download_method = "git"
+url = "https://github.com/aciobanu/cognates"
+git_url = "https://github.com/aciobanu/cognates.git"
+download_path = "data/sources/ciobanu_cognates"
+languages = ["en", "de", "es", "fr", "it", "pt", "ro", "la"]
+concepts = "variable"
+entries_approx = 8000
+license = "MIT"
+quality = "high"
+priority = 5
+status = "ready"
+features = ["cognate_pairs", "orthographic_similarity"]
+citation = "Ciobanu, A.M., Dinu, L.P. Building a Dataset of Multilingual Cognates"
+

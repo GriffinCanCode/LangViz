@@ -107,6 +107,27 @@ npm run dev
 ```bash
 cd backend
 pytest
+
+# Run specific test file
+pytest tests/test_cleaners.py
+
+# With coverage
+pytest --cov=backend tests/
+```
+
+### Data Ingestion
+```bash
+cd backend
+
+# Ingest example Swadesh list
+python3 -m cli.ingest ingest \
+  --file ../data/raw/example_swadesh.csv \
+  --source swadesh_207 \
+  --format csv \
+  --catalog ../data/sources/catalog.toml
+
+# Validate data quality
+python3 -m cli.ingest validate --limit 100
 ```
 
 ### Type Checking
