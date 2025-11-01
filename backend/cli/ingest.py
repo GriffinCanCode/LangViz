@@ -6,9 +6,14 @@ Provides command-line interface for ingesting dictionary data.
 import asyncio
 import asyncpg
 import argparse
+import sys
 from pathlib import Path
-from backend.config import get_settings
-from backend.storage import IngestService
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from config import get_settings
+from storage import IngestService
 
 
 async def ingest_command(args):
