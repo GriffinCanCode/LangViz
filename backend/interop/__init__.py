@@ -1,11 +1,15 @@
-"""Interop layer for polyglot service communication.
+"""Interoperability layer for external language services.
 
-Barrel export for gRPC clients and foreign function interfaces.
+Provides clients for:
+- Perl: Dictionary parsing and text normalization
+- R: Phylogenetic inference and statistical analysis
+- Rust: Phonetic distance computation (future)
 """
 
-from .grpc_client import ParserGrpcClient
+from .perl_client import PerlParserClient
+from .r_client import RPhyloClient
 
 __all__ = [
-    "ParserGrpcClient",
+    "PerlParserClient",
+    "RPhyloClient",
 ]
-

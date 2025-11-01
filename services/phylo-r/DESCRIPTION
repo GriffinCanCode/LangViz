@@ -1,0 +1,19 @@
+Package: LangVizPhylo
+Type: Application
+Title: Phylogenetic Analysis Service for LangViz
+Version: 0.1.0
+Author: LangViz Team
+Description: JSON-RPC server providing phylogenetic tree inference,
+    bootstrap analysis, and hierarchical clustering for linguistic data.
+    Uses ape and phangorn for rigorous statistical methods.
+License: MIT
+Depends:
+    R (>= 4.0.0)
+Imports:
+    jsonlite (>= 1.8.0),
+    ape (>= 5.7),
+    phangorn (>= 2.11.0),
+    pvclust (>= 2.2-0)
+Suggests:
+    testthat (>= 3.0.0)
+
