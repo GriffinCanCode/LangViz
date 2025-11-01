@@ -101,6 +101,37 @@ python3 -m backend.main
 npm run dev
 ```
 
+## Data Sources 📚
+
+### Currently Available (166K+ entries)
+
+We have successfully acquired high-quality linguistic data:
+
+✅ **Perseus Ancient Greek Dictionary** (41 MB, ~116K entries)
+- Liddell-Scott-Jones lexicon
+- Complete classical Greek vocabulary
+- Etymology and citations
+
+✅ **Perseus Latin Dictionary** (74 MB, ~50K entries)  
+- Lewis & Short lexicon
+- Complete classical Latin vocabulary
+- Etymology and usage notes
+
+✅ **Example Swadesh List** (200 entries, 12 languages)
+- Comparative wordlist for testing
+- Covers core concepts
+
+### Quick Start: Download Data
+```bash
+# Download data sources automatically
+cd backend
+source venv/bin/activate
+python3 cli/download_sources.py --list  # See available sources
+python3 cli/download_sources.py --priority 4  # Download all ready sources
+```
+
+See `docs/DATA_ACQUISITION_STRATEGY.md` for comprehensive source information and `docs/QUICK_START.md` for practical next steps.
+
 ## Development
 
 ### Backend Testing
@@ -118,6 +149,12 @@ pytest --cov=backend tests/
 ### Data Ingestion
 ```bash
 cd backend
+
+# Ingest Perseus Greek dictionary
+python3 -m cli.ingest ingest \
+  --file ../data/sources/perseus/grc.lsj.perseus-eng1.xml \
+  --source perseus_greek \
+  --format xml
 
 # Ingest example Swadesh list
 python3 -m cli.ingest ingest \

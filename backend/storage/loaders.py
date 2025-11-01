@@ -279,6 +279,145 @@ class JSONLoader:
             )
 
 
+class KaikkiLoader:
+    """Load Kaikki.org parsed Wiktionary data (JSONL format)."""
+    
+    def load(self, file_path: str, source_id: str) -> Iterator[RawEntry]:
+        """Load entries from Kaikki.org JSONL file.
+        
+        Each line is a JSON object representing a dictionary entry with:
+        - word: the headword
+        - lang: language name
+        - lang_code: ISO language code
+        - pos: part of speech
+        - senses: list of definitions
+        - etymology_text: etymology description
+        - sounds: pronunciation data including IPA
+        """
+        import json
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, start=1):
+                if not line.strip():
+                    continue
+                
+                try:
+                    entry = json.loads(line)
+                    
+                    # Extract IPA if available
+                    ipa = None
+                    if 'sounds' in entry:
+                        for sound in entry.get('sounds', []):
+                            if 'ipa' in sound:
+                                ipa = sound['ipa']
+                                break
+                    
+                    # Combine all sense definitions
+                    definitions = []
+                    for sense in entry.get('senses', []):
+                        if 'glosses' in sense:
+                            definitions.extend(sense['glosses'])
+                    
+                    # Build data dict
+                    data = {
+                        'headword': entry.get('word', ''),
+                        'language': entry.get('lang_code', entry.get('lang', '')),
+                        'ipa': ipa,
+                        'definition': ' | '.join(definitions) if definitions else '',
+                        'etymology': entry.get('etymology_text', ''),
+                        'pos_tag': entry.get('pos', ''),
+                        'source_type': 'wiktionary',
+                    }
+                    
+                    # Skip entries without essential data
+                    if not data['headword'] or not data['language']:
+                        continue
+                    
+                    checksum = hashlib.sha256(
+                        json.dumps(data, sort_keys=True).encode()
+                    ).hexdigest()
+                    
+                    yield RawEntry(
+                        source_id=source_id,
+                        data=data,
+                        checksum=checksum,
+                        file_path=file_path,
+                        line_number=line_num
+                    )
+                    
+                except json.JSONDecodeError as e:
+                    print(f"Warning: Invalid JSON at line {line_num}: {e}")
+                    continue
+                except Exception as e:
+                    print(f"Warning: Error processing line {line_num}: {e}")
+                    continue
+
+
+class PerseusXMLLoader:
+    """Load Perseus Digital Library XML dictionaries."""
+    
+    def load(self, file_path: str, source_id: str) -> Iterator[RawEntry]:
+        """Load entries from Perseus TEI XML format.
+        
+        Perseus uses TEI (Text Encoding Initiative) XML format.
+        """
+        import xml.etree.ElementTree as ET
+        
+        try:
+            tree = ET.parse(file_path)
+            root = tree.getroot()
+            
+            # Define TEI namespace
+            ns = {'tei': 'http://www.tei-c.org/ns/1.0'}
+            
+            for idx, entry_elem in enumerate(root.findall('.//tei:entry', ns)):
+                # Extract headword
+                orth_elem = entry_elem.find('.//tei:orth', ns)
+                headword = orth_elem.text if orth_elem is not None else ''
+                
+                # Extract definitions
+                definitions = []
+                for sense in entry_elem.findall('.//tei:sense', ns):
+                    for def_elem in sense.findall('.//tei:def', ns):
+                        if def_elem.text:
+                            definitions.append(def_elem.text)
+                
+                # Extract etymology if present
+                etymology = ''
+                etym_elem = entry_elem.find('.//tei:etym', ns)
+                if etym_elem is not None:
+                    etymology = ''.join(etym_elem.itertext())
+                
+                # Determine language from source_id
+                language = 'grc' if 'greek' in source_id.lower() else 'la'
+                
+                data = {
+                    'headword': headword,
+                    'language': language,
+                    'definition': ' | '.join(definitions),
+                    'etymology': etymology,
+                    'source_type': 'perseus',
+                }
+                
+                if not headword:
+                    continue
+                
+                checksum = hashlib.sha256(
+                    json.dumps(data, sort_keys=True).encode()
+                ).hexdigest()
+                
+                yield RawEntry(
+                    source_id=source_id,
+                    data=data,
+                    checksum=checksum,
+                    file_path=file_path,
+                    line_number=idx
+                )
+                
+        except ET.ParseError as e:
+            raise ValueError(f"Failed to parse XML file {file_path}: {e}")
+
+
 class LoaderFactory:
     """Factory for selecting appropriate loader."""
     
@@ -291,6 +430,8 @@ class LoaderFactory:
             'csv': SwadeshLoader,  # Alias
             'starling': StarlingLoader,
             'json': JSONLoader,
+            'jsonl': KaikkiLoader,
+            'xml': PerseusXMLLoader,
         }
         
         loader_cls = loaders.get(format.lower())
