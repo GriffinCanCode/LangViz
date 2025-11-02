@@ -1,0 +1,31 @@
+[package]
+name = "langviz-core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "langviz_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.20", features = ["extension-module", "abi3-py38"] }
+numpy = "0.20"
+ndarray = "0.15"
+rayon = "1.8"
+petgraph = "0.6"
+sprs = "0.11"
+ordered-float = { version = "4.2", features = ["serde"] }
+rustc-hash = "1.1"
+unicode-segmentation = "1.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ahash = "0.8"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+

@@ -1,0 +1,23 @@
+# Rust build artifacts
+target/
+Cargo.lock
+
+# Python bindings
+*.so
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+
