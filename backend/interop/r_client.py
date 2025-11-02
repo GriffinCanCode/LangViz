@@ -1,13 +1,14 @@
 """JSON-RPC client for R phylogenetic service.
 
-Communicates with R statistical computing engine over TCP using JSON-RPC protocol.
-Architecture: Mirrors Perl client pattern for consistency.
+Communicates with R statistical computing engine via subprocess (stdin/stdout) using JSON-RPC protocol.
+Architecture: Process-based communication for reliability.
 """
 
 import json
-import socket
+import subprocess
 from typing import Optional
 from dataclasses import dataclass
+from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
@@ -75,39 +76,68 @@ class RPhyloClient:
     
     Leverages R's ape/phangorn packages for publication-quality
     phylogenetic inference and statistical analysis.
+    
+    Communicates via subprocess (stdin/stdout) for reliability.
     """
     
-    def __init__(self, host: str = "localhost", port: int = 50052):
-        self._host = host
-        self._port = port
-        self._socket: Optional[socket.socket] = None
+    def __init__(self, r_script_path: Optional[str] = None):
+        """Initialize R client.
+        
+        Args:
+            r_script_path: Path to server.R (defaults to services/phylo-r/server.R)
+        """
+        if r_script_path is None:
+            # Default to project structure
+            project_root = Path(__file__).parent.parent.parent
+            r_script_path = project_root / "services" / "phylo-r" / "server.R"
+        
+        self._r_script_path = Path(r_script_path)
+        self._process: Optional[subprocess.Popen] = None
         self._request_id = 0
+        
+        if not self._r_script_path.exists():
+            raise FileNotFoundError(f"R script not found: {self._r_script_path}")
     
     def connect(self) -> None:
-        """Establish TCP connection to R service."""
+        """Start R subprocess."""
         try:
-            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._socket.connect((self._host, self._port))
-            self._socket.settimeout(30.0)  # 30 second timeout for long computations
-            logger.info(f"Connected to R phylo service at {self._host}:{self._port}")
-        except ConnectionRefusedError:
-            logger.error(
-                f"Could not connect to R service at {self._host}:{self._port}. "
-                f"Ensure R server is running (cd services/phylo-r && Rscript server.R)"
+            self._process = subprocess.Popen(
+                ["Rscript", str(self._r_script_path)],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
             )
+            logger.info(f"Started R phylo service: {self._r_script_path}")
+        except FileNotFoundError:
+            logger.error(
+                "Rscript not found. Ensure R is installed and in PATH. "
+                "Install from: https://cran.r-project.org/"
+            )
+            raise
+        except Exception as e:
+            logger.error(f"Failed to start R service: {e}")
             raise
     
     def disconnect(self) -> None:
-        """Close TCP connection."""
-        if self._socket:
-            self._socket.close()
-            self._socket = None
-            logger.info("Disconnected from R phylo service")
+        """Stop R subprocess."""
+        if self._process:
+            self._process.stdin.close()
+            self._process.stdout.close()
+            self._process.stderr.close()
+            self._process.terminate()
+            try:
+                self._process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+            self._process = None
+            logger.info("Stopped R phylo service")
     
     def _call(self, method: str, params: dict) -> dict:
-        """Make JSON-RPC call to R service."""
-        if not self._socket:
-            raise RuntimeError("Client not connected. Call connect() first.")
+        """Make JSON-RPC call to R service via subprocess."""
+        if not self._process or self._process.poll() is not None:
+            raise RuntimeError("R process not running. Call connect() first.")
         
         self._request_id += 1
         
@@ -120,24 +150,28 @@ class RPhyloClient:
         
         # Send request
         request_json = json.dumps(request) + "\n"
-        self._socket.sendall(request_json.encode('utf-8'))
+        try:
+            self._process.stdin.write(request_json)
+            self._process.stdin.flush()
+        except Exception as e:
+            logger.error(f"Failed to send request to R: {e}")
+            raise RuntimeError(f"Failed to send request to R: {e}")
         
         # Receive response
-        response_data = b''
-        while b'\n' not in response_data:
-            try:
-                chunk = self._socket.recv(4096)
-            except socket.timeout:
-                raise TimeoutError(
-                    f"R service timeout for method '{method}'. "
-                    f"Consider increasing timeout for long computations."
+        try:
+            response_line = self._process.stdout.readline()
+            if not response_line:
+                # Check if process died
+                stderr_output = self._process.stderr.read()
+                raise RuntimeError(
+                    f"R process terminated unexpectedly. stderr: {stderr_output}"
                 )
             
-            if not chunk:
-                raise ConnectionError("Connection closed by R service")
-            response_data += chunk
-        
-        response = json.loads(response_data.decode('utf-8'))
+            response = json.loads(response_line)
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON from R service: {e}")
+            stderr_output = self._process.stderr.read()
+            raise RuntimeError(f"Invalid JSON from R: {e}. stderr: {stderr_output}")
         
         if "error" in response:
             error_msg = response['error']['message']

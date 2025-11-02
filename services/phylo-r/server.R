@@ -10,12 +10,15 @@ library(ape)
 library(phangorn)
 library(pvclust)
 
+# Define null-coalescing operator
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
 # JSON-RPC 2.0 Server
 # Reads from stdin, writes to stdout (for process-based communication)
 # OR listens on TCP socket (for network-based communication)
 
 PORT <- 50052  # Different from Perl service (50051)
-USE_SOCKET <- TRUE  # Set to FALSE for stdin/stdout mode
+USE_SOCKET <- FALSE  # Set to FALSE for stdin/stdout mode (more reliable)
 
 
 #' Parse JSON-RPC request
@@ -68,14 +71,32 @@ create_error <- function(code, message, id = NULL) {
 infer_tree <- function(params) {
   tryCatch({
     # Extract parameters
-    dist_matrix <- matrix(
-      unlist(params$distances),
-      nrow = length(params$distances),
-      byrow = TRUE
-    )
+    distances_raw <- params$distances
+    
+    # Convert nested list to numeric matrix
+    # Handle both list of lists and flattened lists
+    if (is.list(distances_raw[[1]])) {
+      # List of lists format [[row1], [row2], ...]
+      n <- length(distances_raw)
+      dist_matrix <- do.call(rbind, lapply(distances_raw, as.numeric))
+    } else {
+      # Already flat - create square matrix
+      n <- sqrt(length(unlist(distances_raw)))
+      if (n != floor(n)) {
+        stop(paste("Distance data length", length(unlist(distances_raw)), 
+                   "is not a perfect square"))
+      }
+      dist_matrix <- matrix(unlist(distances_raw), nrow = n, byrow = TRUE)
+    }
     
     labels <- params$labels
     if (!is.null(labels)) {
+      # Convert from JSON list to character vector
+      labels <- unlist(labels)
+      if (length(labels) != nrow(dist_matrix)) {
+        stop(paste("Number of labels", length(labels), 
+                   "does not match matrix size", nrow(dist_matrix)))
+      }
       rownames(dist_matrix) <- labels
       colnames(dist_matrix) <- labels
     }
@@ -100,8 +121,15 @@ infer_tree <- function(params) {
       stop(paste("Unknown method:", method))
     )
     
-    # Compute tree statistics
-    cophenetic_corr <- cor(dist_obj, cophenetic(tree))
+    # Compute tree statistics (cophenetic correlation)
+    orig_mat <- as.matrix(dist_obj)
+    coph_mat <- as.matrix(cophenetic(tree))
+    # Reorder cophenetic to match original
+    coph_mat_ordered <- coph_mat[rownames(orig_mat), colnames(orig_mat)]
+    # Get lower triangles for correlation
+    orig_vec <- orig_mat[lower.tri(orig_mat)]
+    coph_vec <- coph_mat_ordered[lower.tri(coph_mat_ordered)]
+    cophenetic_corr <- cor(orig_vec, coph_vec)
     
     # Extract tree structure
     result <- list(
@@ -128,14 +156,18 @@ infer_tree <- function(params) {
 bootstrap_tree <- function(params) {
   tryCatch({
     # Extract parameters
-    dist_matrix <- matrix(
-      unlist(params$distances),
-      nrow = length(params$distances),
-      byrow = TRUE
-    )
+    distances_raw <- params$distances
+    n <- length(distances_raw)
+    dist_matrix <- matrix(0, nrow = n, ncol = n)
+    
+    for (i in 1:n) {
+      dist_matrix[i, ] <- unlist(distances_raw[[i]])
+    }
     
     labels <- params$labels
     if (!is.null(labels)) {
+      # Convert from JSON list to character vector
+      labels <- unlist(labels)
       rownames(dist_matrix) <- labels
       colnames(dist_matrix) <- labels
     }
@@ -196,14 +228,18 @@ bootstrap_tree <- function(params) {
 cluster_hierarchical <- function(params) {
   tryCatch({
     # Extract parameters
-    dist_matrix <- matrix(
-      unlist(params$distances),
-      nrow = length(params$distances),
-      byrow = TRUE
-    )
+    distances_raw <- params$distances
+    n <- length(distances_raw)
+    dist_matrix <- matrix(0, nrow = n, ncol = n)
+    
+    for (i in 1:n) {
+      dist_matrix[i, ] <- unlist(distances_raw[[i]])
+    }
     
     labels <- params$labels
     if (!is.null(labels)) {
+      # Convert from JSON list to character vector
+      labels <- unlist(labels)
       rownames(dist_matrix) <- labels
       colnames(dist_matrix) <- labels
     }
@@ -341,22 +377,33 @@ cophenetic_correlation <- function(params) {
   tryCatch({
     tree <- read.tree(text = params$newick)
     
-    dist_matrix <- matrix(
-      unlist(params$distances),
-      nrow = length(params$distances),
-      byrow = TRUE
-    )
+    distances_raw <- params$distances
+    n <- length(distances_raw)
+    dist_matrix <- matrix(0, nrow = n, ncol = n)
+    
+    for (i in 1:n) {
+      dist_matrix[i, ] <- unlist(distances_raw[[i]])
+    }
     
     labels <- params$labels
     if (!is.null(labels)) {
+      # Convert from JSON list to character vector
+      labels <- unlist(labels)
       rownames(dist_matrix) <- labels
       colnames(dist_matrix) <- labels
     }
     
     dist_obj <- as.dist(dist_matrix)
-    cophenetic_dist <- cophenetic(tree)
     
-    correlation <- cor(dist_obj, cophenetic_dist)
+    # Compute cophenetic correlation properly
+    orig_mat <- as.matrix(dist_obj)
+    coph_mat <- as.matrix(cophenetic(tree))
+    # Reorder cophenetic to match original
+    coph_mat_ordered <- coph_mat[rownames(orig_mat), colnames(orig_mat)]
+    # Get lower triangles for correlation
+    orig_vec <- orig_mat[lower.tri(orig_mat)]
+    coph_vec <- coph_mat_ordered[lower.tri(coph_mat_ordered)]
+    correlation <- cor(orig_vec, coph_vec)
     
     result <- list(
       correlation = correlation,

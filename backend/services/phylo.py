@@ -37,9 +37,8 @@ class PhyloService:
     Use static tree for API queries, inferred tree for analysis.
     """
     
-    r_host: str = "localhost"
-    r_port: int = 50052
-    use_r: bool = False  # Enable R integration when service is running
+    use_r: bool = False  # Enable R integration (spawns R subprocess)
+    r_script_path: Optional[str] = None  # Path to R server.R script
     
     # Cache for inferred trees (keyed by distance matrix hash)
     _tree_cache: dict[str, RTree] = field(default_factory=dict)
@@ -55,7 +54,7 @@ class PhyloService:
     def _check_r_service(self) -> bool:
         """Check if R service is available."""
         try:
-            with RPhyloClient(self.r_host, self.r_port) as client:
+            with RPhyloClient(self.r_script_path) as client:
                 available = client.ping()
                 if available:
                     logger.info("R phylo service is available")
@@ -66,7 +65,7 @@ class PhyloService:
             logger.warning(
                 f"R phylo service not available: {e}. "
                 f"Falling back to static tree. "
-                f"To enable R features, start: cd services/phylo-r && Rscript server.R"
+                f"To enable R features, ensure R is installed with required packages."
             )
             return False
     
@@ -107,7 +106,7 @@ class PhyloService:
         
         logger.info(f"Inferring tree for {len(labels)} languages with method '{method}'")
         
-        with RPhyloClient(self.r_host, self.r_port) as client:
+        with RPhyloClient(self.r_script_path) as client:
             tree = client.infer_tree(distance_matrix, labels, method)
         
         # Cache result
@@ -145,7 +144,7 @@ class PhyloService:
         
         logger.info(f"Bootstrap analysis with {n_bootstrap} replicates")
         
-        with RPhyloClient(self.r_host, self.r_port) as client:
+        with RPhyloClient(self.r_script_path) as client:
             result = client.bootstrap_tree(
                 distance_matrix,
                 labels,
@@ -178,7 +177,7 @@ class PhyloService:
         
         logger.info(f"Hierarchical clustering with method '{method}'")
         
-        with RPhyloClient(self.r_host, self.r_port) as client:
+        with RPhyloClient(self.r_script_path) as client:
             result = client.cluster_hierarchical(
                 distance_matrix,
                 labels,
@@ -206,7 +205,7 @@ class PhyloService:
         if not self.use_r:
             raise RuntimeError("R service required for tree comparison")
         
-        with RPhyloClient(self.r_host, self.r_port) as client:
+        with RPhyloClient(self.r_script_path) as client:
             result = client.compare_trees(tree1_newick, tree2_newick)
         
         return result
@@ -233,7 +232,7 @@ class PhyloService:
         if not self.use_r:
             raise RuntimeError("R service required for dendrogram plotting")
         
-        with RPhyloClient(self.r_host, self.r_port) as client:
+        with RPhyloClient(self.r_script_path) as client:
             result = client.plot_dendrogram(
                 newick,
                 output_path,
