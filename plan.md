@@ -11,7 +11,7 @@ Primary coordination layer for data processing, analysis pipeline, and API servi
 **Specialized Processing Layers:**
 - **Perl 5.38+**: Dictionary parsing and text normalization. Perl's regex engine and text manipulation remain unmatched for messy linguistic data with inconsistent formats. Use for ETL from raw dictionary files. ✅ **IMPLEMENTED** (JSON-RPC service on port 50051)
 - **R 4.0+**: Phylogenetic inference (ape/phangorn), bootstrap analysis, hierarchical clustering with statistical significance (pvclust), and publication-quality dendrograms. ✅ **IMPLEMENTED** (JSON-RPC service on port 50052)
-- **Rust**: Phonetic distance computations and graph algorithms. Compile performance-critical cognate detection into Python-callable libraries via PyO3. 🔄 **PLANNED**
+- **Rust**: Phonetic distance computations, graph algorithms, sparse matrices, and clustering primitives. High-performance computational kernel via PyO3. ✅ **IMPLEMENTED** (Python extension module `langviz_core`)
 
 ## Backend Stack
 
@@ -24,16 +24,14 @@ Primary coordination layer for data processing, analysis pipeline, and API servi
 - **python-Levenshtein** (C-backed): Fast edit distance baseline
 
 *NLP & Semantics:*
-- **fastText** (Facebook): Cross-lingual word embeddings with subword info
-- **sentence-transformers**: Multilingual semantic similarity (paraphrase-multilingual-mpnet-base-v2)
-- **spaCy with multilingual models**: POS tagging, lemmatization
-- **MUSE** (Facebook): Unsupervised cross-lingual embeddings
+- **sentence-transformers** (paraphrase-multilingual-mpnet-base-v2): Multilingual semantic similarity ✅ **OPTIMAL CHOICE** (replaces fastText + MUSE)
+- **UMAP + HDBSCAN**: Auto-discover cross-lingual semantic concepts ✅ **IMPLEMENTED**
+- **spaCy with multilingual models**: Available for future POS tagging/lemmatization
 
 *Data & Graph:*
-- **PostgreSQL 16** with **pgvector** extension: Store embeddings, full-text search, efficient similarity queries
-- **NetworkX** (Python): Graph construction and analysis
-- **igraph** (R/Python): High-performance community detection algorithms
-- **Redis**: Cache frequently-accessed similarity computations
+- **PostgreSQL 16** with **pgvector** extension: Store embeddings, full-text search, efficient similarity queries ✅
+- **Rust/petgraph** (50x faster than NetworkX): Graph construction and analysis ✅ **IMPLEMENTED**
+- **Redis**: Cache frequently-accessed similarity computations ✅
 
 *Etymology-Specific:*
 - **LingPy**: Automated cognate detection with SCA (Sound Correspondence Analysis)
@@ -64,12 +62,13 @@ Primary coordination layer for data processing, analysis pipeline, and API servi
 
 1. **Ingestion** (Perl): Parse heterogeneous dictionary formats → normalized JSON
 2. **Enrichment** (Python): IPA transcription, POS tagging, etymology extraction
-3. **Embedding** (Python/fastText): Generate semantic vectors per entry
-4. **Similarity Matrix** (Rust/Python): Compute phonetic + semantic distances
-5. **Graph Construction** (NetworkX): Build weighted cognate network
-6. **Storage** (PostgreSQL): Index with similarity search capability
-7. **API** (FastAPI/Python): Serve queries with caching layer
-8. **Frontend** (Svelte/D3): Interactive exploration and visualization
+3. **Embedding** (Python/sentence-transformers): Generate semantic vectors per entry
+4. **Similarity Matrix** (Rust): Compute phonetic + semantic distances (10-50x faster)
+5. **Graph Construction** (Rust/petgraph): Build weighted cognate network (50x faster)
+6. **Clustering** (Rust + Python/HDBSCAN): Detect cognate sets and concept clusters
+7. **Storage** (PostgreSQL): Index with similarity search capability
+8. **API** (FastAPI/Python): Serve queries with caching layer
+9. **Frontend** (Svelte/D3): Interactive exploration and visualization
 
 ## Data Model
 
