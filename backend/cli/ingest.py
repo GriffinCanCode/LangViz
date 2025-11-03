@@ -1,6 +1,7 @@
-"""CLI tool for data ingestion.
+"""CLI tool for accelerated data ingestion.
 
-Provides command-line interface for ingesting dictionary data.
+Provides command-line interface for ingesting dictionary data
+with parallel workers and bulk operations.
 """
 
 import asyncio
@@ -13,21 +14,31 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import get_settings
-from storage import IngestService
+from storage.ingest import IngestService, IngestConfig
 
 
 async def ingest_command(args):
-    """Ingest a data file."""
+    """Ingest a data file with accelerated pipeline."""
     settings = get_settings()
     
-    # Connect to database
+    # Connect to database with larger pool for parallel operations
     pool = await asyncpg.create_pool(
         settings.database_url,
-        min_size=1,
-        max_size=5
+        min_size=5,
+        max_size=20  # Increased for parallel workers
     )
     
-    service = IngestService(pool)
+    # Configure accelerated ingestion
+    config = IngestConfig(
+        load_batch=args.load_batch,
+        clean_batch=args.clean_batch,
+        write_batch=args.write_batch,
+        num_cleaners=args.workers,
+        num_writers=max(2, args.workers // 2),  # Half as many writers as cleaners
+        skip_duplicates=not args.allow_duplicates
+    )
+    
+    service = IngestService(pool, config)
     
     # Register source if catalog provided
     if args.catalog:
@@ -54,16 +65,24 @@ async def ingest_command(args):
 
 
 async def reprocess_command(args):
-    """Reprocess raw entries with updated pipeline."""
+    """Reprocess raw entries with updated pipeline using accelerated approach."""
     settings = get_settings()
     
     pool = await asyncpg.create_pool(
         settings.database_url,
-        min_size=1,
-        max_size=5
+        min_size=5,
+        max_size=20  # Increased for parallel workers
     )
     
-    service = IngestService(pool)
+    # Configure accelerated reprocessing
+    config = IngestConfig(
+        clean_batch=args.clean_batch,
+        write_batch=args.write_batch,
+        num_cleaners=args.workers,
+        num_writers=max(2, args.workers // 2)
+    )
+    
+    service = IngestService(pool, config)
     
     print(f"Reprocessing source: {args.source or 'all'}...")
     stats = await service.reprocess_with_pipeline(
@@ -144,7 +163,7 @@ def main():
     # Ingest command
     ingest_parser = subparsers.add_parser(
         'ingest',
-        help='Ingest a data file'
+        help='Ingest a data file with accelerated pipeline'
     )
     ingest_parser.add_argument(
         '--file',
@@ -171,15 +190,62 @@ def main():
         action='store_true',
         help='Validate without storing'
     )
+    ingest_parser.add_argument(
+        '--workers',
+        type=int,
+        default=4,
+        help='Number of parallel cleaning workers (default: 4)'
+    )
+    ingest_parser.add_argument(
+        '--load-batch',
+        type=int,
+        default=10000,
+        help='Batch size for loading raw entries (default: 10000)'
+    )
+    ingest_parser.add_argument(
+        '--clean-batch',
+        type=int,
+        default=5000,
+        help='Batch size for cleaning (default: 5000)'
+    )
+    ingest_parser.add_argument(
+        '--write-batch',
+        type=int,
+        default=10000,
+        help='Batch size for writing (default: 10000)'
+    )
+    ingest_parser.add_argument(
+        '--allow-duplicates',
+        action='store_true',
+        help='Allow duplicate entries (default: skip duplicates)'
+    )
     
     # Reprocess command
     reprocess_parser = subparsers.add_parser(
         'reprocess',
-        help='Reprocess raw entries with updated pipeline'
+        help='Reprocess raw entries with updated pipeline using accelerated approach'
     )
     reprocess_parser.add_argument(
         '--source',
         help='Source ID to reprocess (all if omitted)'
+    )
+    reprocess_parser.add_argument(
+        '--workers',
+        type=int,
+        default=4,
+        help='Number of parallel cleaning workers (default: 4)'
+    )
+    reprocess_parser.add_argument(
+        '--clean-batch',
+        type=int,
+        default=5000,
+        help='Batch size for cleaning (default: 5000)'
+    )
+    reprocess_parser.add_argument(
+        '--write-batch',
+        type=int,
+        default=10000,
+        help='Batch size for writing (default: 10000)'
     )
     
     # Validate command
