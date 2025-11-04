@@ -4,6 +4,8 @@ This module provides fully optimized services with:
 - GPU acceleration
 - Redis caching
 - Rust acceleration
+- R statistical computing
+- Perl regex parsing
 - Batch processing
 - Async I/O
 
@@ -13,12 +15,15 @@ NO SLOW ALTERNATIVES - Maximum performance only.
 import asyncio
 import asyncpg
 from typing import Optional
+from pathlib import Path
 
 from backend.config import get_settings
 from backend.services.embedding import OptimizedEmbeddingService
 from backend.services.concepts import ConceptAligner
 from backend.services.phonetic import PhoneticService
 from backend.storage.cache import EmbeddingCache, ConceptCache
+from backend.interop.r_client import RPhyloClient
+from backend.interop.perl_client import PerlParserClient
 from backend.observ import get_logger
 
 logger = get_logger(__name__)
@@ -35,6 +40,8 @@ class OptimizedServiceContainer:
         self._phonetic: Optional[PhoneticService] = None
         self._embedding_cache: Optional[EmbeddingCache] = None
         self._concept_cache: Optional[ConceptCache] = None
+        self._r_client: Optional[RPhyloClient] = None
+        self._perl_client: Optional[PerlParserClient] = None
         self._initialized = False
     
     async def initialize(self) -> None:
@@ -70,6 +77,39 @@ class OptimizedServiceContainer:
         # Phonetic service with Rust acceleration
         self._phonetic = PhoneticService(use_rust=True)
         
+        # R phylogenetic service (MANDATORY - auto-start)
+        logger.info("starting_r_service")
+        self._r_client = RPhyloClient()
+        try:
+            self._r_client.connect()
+            # Verify R service is responsive
+            if not self._r_client.ping():
+                raise RuntimeError("R service started but not responding to ping")
+            logger.info("r_service_ready")
+        except Exception as e:
+            logger.error("r_service_failed", error=str(e))
+            raise RuntimeError(
+                f"Failed to start R phylogenetic service: {e}. "
+                f"Ensure R is installed with required packages (ape, phangorn). "
+                f"See docs/R_INTEGRATION.md for setup instructions."
+            )
+        
+        # Perl parser service (OPTIONAL - only needed for Starling format dictionaries)
+        logger.info("checking_perl_service")
+        self._perl_client = PerlParserClient(
+            host=self._settings.parser_service_host,
+            port=self._settings.parser_service_port
+        )
+        try:
+            self._perl_client.connect()
+            # Verify Perl service is responsive with a simple test
+            test_result = self._perl_client.normalize_text("test")
+            logger.info("perl_service_ready", test_result=test_result)
+        except Exception as e:
+            logger.warning("perl_service_unavailable", error=str(e))
+            logger.info("perl_service_optional", note="Only needed for Starling dictionary parsing")
+            self._perl_client = None  # Mark as unavailable but don't fail
+        
         # Redis caching (always enabled for maximum performance)
         self._embedding_cache = EmbeddingCache(
             redis_url=self._settings.redis_url,
@@ -89,6 +129,9 @@ class OptimizedServiceContainer:
             "optimized_services_ready",
             gpu=self._embedding.device_info['device'],
             rust_available=self._phonetic._use_rust,
+            r_service_available=self._r_client is not None,
+            perl_service_available=self._perl_client is not None,
+            perl_note="optional - only needed for Starling dictionaries" if self._perl_client is None else "connected",
             cache_enabled=self._embedding_cache._enabled,
             pool_size=f"{self._pool._minsize}-{self._pool._maxsize}"
         )
@@ -99,6 +142,10 @@ class OptimizedServiceContainer:
             await self._embedding_cache.close()
         if self._concept_cache:
             await self._concept_cache.close()
+        if self._r_client:
+            self._r_client.disconnect()
+        if self._perl_client:
+            self._perl_client.disconnect()
         if self._pool:
             await self._pool.close()
         
@@ -147,6 +194,20 @@ class OptimizedServiceContainer:
             raise RuntimeError("Services not initialized. Call initialize() first.")
         return self._concept_cache
     
+    @property
+    def r_client(self) -> RPhyloClient:
+        """Get R phylogenetic service client."""
+        if not self._initialized:
+            raise RuntimeError("Services not initialized. Call initialize() first.")
+        return self._r_client
+    
+    @property
+    def perl_client(self) -> Optional[PerlParserClient]:
+        """Get Perl parser service client (may be None if unavailable)."""
+        if not self._initialized:
+            raise RuntimeError("Services not initialized. Call initialize() first.")
+        return self._perl_client
+    
     def print_performance_profile(self) -> None:
         """Print current performance configuration."""
         if not self._initialized:
@@ -167,6 +228,14 @@ class OptimizedServiceContainer:
         print(f"")
         print(f"Rust Acceleration:")
         print(f"  Phonetic: {'✓ Enabled' if self._phonetic._use_rust else '✗ Disabled (using Python fallback)'}")
+        
+        print(f"")
+        print(f"Language-Specific Services:")
+        print(f"  R (Phylogenetics): {'✓ Connected' if self._r_client else '✗ Not available'}")
+        if self._perl_client:
+            print(f"  Perl (Parser): ✓ Connected")
+        else:
+            print(f"  Perl (Parser): ⚠ Optional (only for Starling dictionaries)")
         
         print(f"")
         print(f"Caching:")

@@ -1,7 +1,8 @@
-requires 'perl', '5.038000';
+requires 'perl', '5.030000';  # Relaxed requirement
 
 # Core dependencies
-requires 'Lingua::IPA', '0.05';
+# Lingua::IPA is optional - requires Perl 5.38+
+# requires 'Lingua::IPA', '0.05';
 requires 'Unicode::Normalize';
 requires 'Text::Unidecode';
 requires 'utf8::all';

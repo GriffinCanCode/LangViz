@@ -16,23 +16,94 @@ from backend.errors import InvalidIPAError
 
 logger = get_logger(__name__)
 
+# Try to import Rust backend
+try:
+    from langviz_core import (
+        py_phonetic_distance,
+        py_batch_phonetic_distance,
+        py_lcs_ratio,
+        py_dtw_align,
+    )
+    RUST_AVAILABLE = True
+    logger.info("rust_phonetic_backend_loaded")
+except ImportError:
+    RUST_AVAILABLE = False
+    logger.warning("rust_phonetic_backend_unavailable", fallback="python_panphon")
+
 
 class PhoneticService(IPhoneticAnalyzer):
     """Orchestrates phonetic analysis using multiple backends."""
     
-    def __init__(self):
+    def __init__(self, use_rust: bool = True):
         self._feature_table = panphon.FeatureTable()
         self._transliterators: dict[str, epitran.Epitran] = {}
-        # Rust module will be imported when available
-        self._rust_backend: Optional[object] = None
+        self._use_rust = use_rust and RUST_AVAILABLE
+        
+        if self._use_rust:
+            logger.info("phonetic_service_initialized", backend="rust")
+        else:
+            logger.info("phonetic_service_initialized", backend="python_panphon")
         
     def compute_distance(self, ipa_a: str, ipa_b: str) -> float:
         """Compute phonetic distance with Rust acceleration."""
-        logger.debug("computing_distance", ipa_a=ipa_a, ipa_b=ipa_b, using_rust=bool(self._rust_backend))
+        logger.debug("computing_distance", ipa_a=ipa_a, ipa_b=ipa_b, using_rust=self._use_rust)
         
-        if self._rust_backend:
-            return self._rust_backend.phonetic_distance(ipa_a, ipa_b)
+        if self._use_rust:
+            try:
+                # Rust returns similarity (1.0 = identical), convert to distance
+                similarity = py_phonetic_distance(ipa_a, ipa_b)
+                return 1.0 - similarity
+            except Exception as e:
+                logger.warning("rust_phonetic_distance_failed", error=str(e), fallback=True)
+                return self._fallback_distance(ipa_a, ipa_b)
         return self._fallback_distance(ipa_a, ipa_b)
+    
+    def batch_compute_distance(self, pairs: list[tuple[str, str]]) -> list[float]:
+        """Batch compute phonetic distances (parallelized with Rust)."""
+        logger.debug("batch_computing_distance", num_pairs=len(pairs), using_rust=self._use_rust)
+        
+        if self._use_rust:
+            try:
+                # Rust returns similarities, convert to distances
+                similarities = py_batch_phonetic_distance(pairs)
+                return [1.0 - sim for sim in similarities]
+            except Exception as e:
+                logger.warning("rust_batch_distance_failed", error=str(e), fallback=True)
+                return [self.compute_distance(a, b) for a, b in pairs]
+        return [self.compute_distance(a, b) for a, b in pairs]
+    
+    def align_sequences(self, ipa_a: str, ipa_b: str) -> dict:
+        """Align two IPA sequences using DTW.
+        
+        Returns alignment with cost and operations.
+        """
+        if self._use_rust:
+            try:
+                alignment = py_dtw_align(ipa_a, ipa_b)
+                return {
+                    "sequence_a": alignment.sequence_a,
+                    "sequence_b": alignment.sequence_b,
+                    "cost": alignment.cost,
+                    "correspondences": alignment.correspondences()
+                }
+            except Exception as e:
+                logger.warning("rust_dtw_failed", error=str(e))
+                return {"error": str(e)}
+        else:
+            logger.warning("dtw_unavailable", reason="rust_backend_required")
+            return {"error": "DTW requires Rust backend"}
+    
+    def lcs_similarity(self, ipa_a: str, ipa_b: str) -> float:
+        """Compute longest common subsequence similarity."""
+        if self._use_rust:
+            try:
+                return py_lcs_ratio(ipa_a, ipa_b)
+            except Exception as e:
+                logger.warning("rust_lcs_failed", error=str(e))
+                return 0.0
+        else:
+            # Simple fallback
+            return 0.0
     
     def extract_features(self, ipa: str) -> PhoneticFeatures:
         """Extract panphon features for IPA segment."""

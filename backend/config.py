@@ -3,6 +3,7 @@
 Loads settings from environment with validation.
 """
 
+import os
 from functools import lru_cache
 from typing import Optional
 from pydantic import Field
@@ -22,8 +23,8 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_db: str = "langviz"
-    postgres_user: str = "langviz"
-    postgres_password: str = "changeme"
+    postgres_user: str = Field(default_factory=lambda: os.getenv("USER", "postgres"))
+    postgres_password: str = ""
     
     # Redis
     redis_host: str = "localhost"

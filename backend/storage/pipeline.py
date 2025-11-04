@@ -139,7 +139,7 @@ class PipelineFactory:
         
         return Pipeline([
             DefinitionCleaner(),
-            TextNormalizer(lowercase=False),
+            TextNormalizer(),
         ])
     
     @staticmethod

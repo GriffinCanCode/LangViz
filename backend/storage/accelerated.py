@@ -184,6 +184,8 @@ class AcceleratedBatchProcessor:
                 self._writer_worker(worker_id=i)
             ))
         
+        # Note: Need to send None signal to each worker stage
+        
         # Stage 5: Progress monitor
         tasks.append(asyncio.create_task(
             self._progress_monitor()
@@ -238,32 +240,37 @@ class AcceleratedBatchProcessor:
                 
                 where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
                 
-                # Stream in large batches
-                async with conn.transaction():
-                    cursor = await conn.cursor(
+                # Stream in large batches using fetch with LIMIT/OFFSET
+                offset = 0
+                batch = []
+                
+                while not self._stop_flag.is_set():
+                    rows = await conn.fetch(
                         f"""
                         SELECT id, raw_data, source_id
                         FROM raw_entries
                         {where_sql}
                         ORDER BY id
+                        LIMIT ${ len(params) + 1} OFFSET ${len(params) + 2}
                         """,
-                        *params
+                        *params, self._config.db_fetch_batch, offset
                     )
                     
-                    batch = []
-                    async for row in cursor:
-                        batch.append(dict(row['raw_data']))
+                    if not rows:
+                        break
+                    
+                    for row in rows:
+                        batch.append(row['raw_data'])  # Already a dict from JSONB column
                         
                         if len(batch) >= self._config.db_fetch_batch:
                             await self._raw_queue.put(batch)
                             batch = []
-                            
-                            if self._stop_flag.is_set():
-                                break
                     
-                    # Send remaining
-                    if batch:
-                        await self._raw_queue.put(batch)
+                    offset += len(rows)
+                
+                # Send remaining
+                if batch:
+                    await self._raw_queue.put(batch)
             
             # Signal completion
             for _ in range(self._config.num_cleaners):
@@ -297,13 +304,28 @@ class AcceleratedBatchProcessor:
                 
                 for raw in raw_batch:
                     try:
+                        # Map Kaikki fields to our schema
+                        mapped_raw = {
+                            'headword': raw.get('word', ''),
+                            'language': raw.get('lang_code', ''),
+                            'ipa': (raw.get('sounds', [{}])[0].get('ipa', '') if raw.get('sounds') else ''),
+                            'definition': ', '.join(
+                                gloss for sense in raw.get('senses', [])
+                                for gloss in (sense.get('glosses', []) or [sense.get('raw_glosses', '')])
+                            ) if raw.get('senses') else '',
+                            'pos_tag': raw.get('pos', ''),
+                            'etymology': raw.get('etymology_text', '')
+                        }
+                        
                         # Apply cleaning pipelines
                         cleaned_data = {}
                         
                         for field, pipeline in pipelines.items():
-                            if field in raw and raw[field]:
-                                cleaned, _ = pipeline.apply(raw[field], track_provenance=False)
+                            if field in mapped_raw and mapped_raw[field]:
+                                cleaned, _ = pipeline.apply(mapped_raw[field], track_provenance=False)
                                 cleaned_data[field] = cleaned
+                            else:
+                                cleaned_data[field] = mapped_raw.get(field, '')
                         
                         # Create entry
                         entry = Entry(
@@ -312,8 +334,8 @@ class AcceleratedBatchProcessor:
                             ipa=cleaned_data.get('ipa', ''),
                             language=cleaned_data.get('language', ''),
                             definition=cleaned_data.get('definition', ''),
-                            etymology=raw.get('etymology'),
-                            pos_tag=raw.get('pos_tag'),
+                            etymology=cleaned_data.get('etymology', ''),
+                            pos_tag=cleaned_data.get('pos_tag', ''),
                             embedding=None,  # Will be computed
                             created_at=datetime.utcnow()
                         )
@@ -324,6 +346,12 @@ class AcceleratedBatchProcessor:
                             self._stats.cleaned += 1
                         else:
                             self._stats.skipped += 1
+                            if self._stats.skipped <= 5:  # Log first few skips for debugging
+                                logger.debug("entry_skipped_quality", 
+                                           headword=entry.headword, 
+                                           ipa=entry.ipa,
+                                           definition=entry.definition[:50] if entry.definition else None,
+                                           language=entry.language)
                     
                     except Exception as e:
                         logger.debug("entry_cleaning_failed", error=str(e))
@@ -350,14 +378,22 @@ class AcceleratedBatchProcessor:
         logger.info("embedder_worker_started", worker_id=worker_id, device=self._embedding.device_info)
         
         try:
+            none_count = 0
             while not self._stop_flag.is_set():
                 # Get cleaned batch
                 cleaned_batch = await self._cleaned_queue.get()
                 
                 # Check for completion signal
                 if cleaned_batch is None:
-                    await self._embedded_queue.put(None)
-                    break
+                    none_count += 1
+                    # Wait until ALL cleaners have sent their completion signals
+                    if none_count >= self._config.num_cleaners:
+                        # Now send completion signals to all writers
+                        for _ in range(self._config.num_writers):
+                            await self._embedded_queue.put(None)
+                        break
+                    # Continue consuming None signals from other cleaners
+                    continue
                 
                 # Filter entries needing embeddings
                 if self._config.skip_existing_embeddings:
@@ -456,15 +492,21 @@ class AcceleratedBatchProcessor:
         if not entries:
             return
         
+        logger.info("flushing_write_buffer", entry_count=len(entries))
+        
         try:
             # Assign concepts in batch
+            logger.debug("batch_assigning_concepts", entry_count=len(entries))
             concept_assignments = self._concepts.batch_assign(entries)
+            logger.debug("concepts_assigned", count=len(concept_assignments))
             
             # Bulk upsert
+            logger.debug("bulk_upserting", entry_count=len(entries))
             written = await self._bulk_writer.bulk_upsert_entries(
                 entries,
                 concept_assignments
             )
+            logger.info("bulk_upsert_complete", written=written)
             
             self._stats.written += written
             self._stats.succeeded += written
@@ -536,9 +578,10 @@ class AcceleratedBatchProcessor:
     
     def _meets_quality_threshold(self, entry: Entry) -> bool:
         """Check if entry meets minimum quality threshold."""
-        if not entry.headword or not entry.ipa or not entry.definition:
+        # Require headword and definition (IPA is optional)
+        if not entry.headword or not entry.definition:
             return False
-        if len(entry.definition) < 10:
+        if len(entry.definition) < 5:  # Relaxed from 10 to 5
             return False
         return True
     

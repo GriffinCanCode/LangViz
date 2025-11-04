@@ -1,15 +1,23 @@
 """OPTIMIZED data processing CLI - MAXIMUM PERFORMANCE by default.
 
-All optimizations enabled:
+All optimizations MANDATORY and enabled:
 - GPU acceleration (auto-detect)
 - PostgreSQL COPY protocol (100-1000x faster inserts)
 - Async pipeline with producer-consumer pattern
 - Redis caching
-- Rust phonetic acceleration
+- Rust phonetic acceleration (REQUIRED)
+- R phylogenetic service (REQUIRED - auto-starts)
+- Perl parser service (REQUIRED - must be running on port 50051)
 - Large batch sizes
 - Optimized connection pool
 
 Expected: 10,000+ entries/sec (30-50x baseline)
+
+PREREQUISITES:
+- R installed with ape/phangorn packages
+- Perl service running: cd services/regexer && perl server.pl
+- Rust backend compiled: make install-rust
+- Redis running
 """
 
 import asyncio
@@ -111,16 +119,23 @@ def process_pipeline(
 ):
     """OPTIMIZED processing pipeline - MAXIMUM SPEED.
     
-    All optimizations enabled by default:
+    All optimizations MANDATORY and enabled:
     - GPU acceleration (auto-detect CUDA/MPS)
     - PostgreSQL COPY protocol (100-1000x faster)
     - Async pipeline (producer-consumer)
     - Redis caching
-    - Rust acceleration
+    - Rust phonetic acceleration (REQUIRED)
+    - R phylogenetic service (REQUIRED - auto-starts as subprocess)
+    - Perl parser service (REQUIRED - must be running)
     - Large optimized batches
     
     Expected: 10,000+ entries/sec (30-50x baseline)
     6.7M entries: ~12 minutes (vs 7-10 hours baseline)
+    
+    PREREQUISITES:
+    - R installed: https://cran.r-project.org/
+    - Perl service running: make start-perl OR cd services/regexer && perl server.pl
+    - Rust compiled: make install-rust
     """
     
     async def _process():

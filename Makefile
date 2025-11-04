@@ -121,6 +121,20 @@ process-all: check-r
 	cd backend && . venv/bin/activate && cd .. && \
 		DEBUG=false LOG_LEVEL=INFO PYTHONPATH=. python3 -m backend.cli.process process-pipeline
 
+embed:
+	@echo ""
+	@echo "Starting embedding generation pipeline..."
+	@echo "  ✓ GPU acceleration enabled"
+	@echo "  ✓ Processes existing entries in database"
+	@echo "  ✓ Batch size: 512 (GPU)"
+	@echo "  ✓ Write batch: 10,000"
+	@echo ""
+	cd backend && . venv/bin/activate && cd .. && \
+		DEBUG=false LOG_LEVEL=INFO PYTHONPATH=. python3 -m backend.cli.embed
+
+embed-status:
+	@./scripts/check_embedding_progress.sh
+
 concepts:
 	cd backend && . venv/bin/activate && cd .. && \
 		PYTHONPATH=. python3 -m backend.cli.similarity discover-concepts
